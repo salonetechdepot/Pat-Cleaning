@@ -27,6 +27,7 @@ model Service {
   durationMin Int
   category    String   @default("Residential")
   imageUrl    String?
+  stripePriceId String? 
   bookings    BookingService[]
 }
 

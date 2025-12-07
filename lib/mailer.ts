@@ -30,13 +30,48 @@ const from = process.env.NEXT_PUBLIC_FROM_EMAIL as string
 
 //   await resend.emails.send({ from, to, subject, html })
 // }
+// export async function sendBookingUpdate(
+//   to: string,
+//   status: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED",
+//   bookingId: number,
+//   customerName: string,
+//   serviceNames: string,
+//   date: string
+// ) {
+//   try {
+//     const subject =
+//       status === "CONFIRMED"
+//         ? "Booking Confirmed ✅"
+//         : status === "CANCELLED"
+//         ? "Booking Cancelled ❌"
+//         : status === "COMPLETED"
+//         ? "Booking Completed 🎉"
+//         : "Booking Rescheduled 🔄"
+
+//     const html = `
+//       <p>Hi ${customerName},</p>
+//       <p>Your cleaning booking <strong>#${bookingId}</strong> has been <strong>${status.toLowerCase()}</strong>.</p>
+//       <ul>
+//         <li>Services: ${serviceNames}</li>
+//         <li>Date: ${new Date(date).toLocaleString()}</li>
+//       </ul>
+//       <p>Thank you for choosing Pat Pro Cleaning!</p>
+//     `
+
+//     await resend.emails.send({ from, to, subject, html })
+//   } catch (err) {
+//     console.error("Email failed:", err)
+   
+//   }
+// }
 export async function sendBookingUpdate(
   to: string,
   status: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED",
   bookingId: number,
   customerName: string,
   serviceNames: string,
-  date: string
+  date: string,
+  payUrl?: string          // ← NEW optional 7th arg
 ) {
   try {
     const subject =
@@ -55,16 +90,19 @@ export async function sendBookingUpdate(
         <li>Services: ${serviceNames}</li>
         <li>Date: ${new Date(date).toLocaleString()}</li>
       </ul>
+      ${
+        payUrl
+          ? `<a href="${payUrl}" style="background:#635bff;color:white;padding:12px 24px;border-radius:4px;text-decoration:none;display:inline-block;margin-top:12px;">Pay now with Stripe</a>`
+          : ""
+      }
       <p>Thank you for choosing Pat Pro Cleaning!</p>
     `
 
     await resend.emails.send({ from, to, subject, html })
   } catch (err) {
     console.error("Email failed:", err)
-   
   }
 }
-
 
 export async function sendCustomerConfirmation(
   to: string,

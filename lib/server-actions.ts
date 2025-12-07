@@ -6,6 +6,8 @@ import {notifyAdminNewBooking, sendBookingUpdate} from "../lib/mailer"
 import { send24hReminder } from "../lib/reminders"
 import { sendCustomerConfirmation } from "../lib/mailer"
 import { currentUser } from "@clerk/nextjs/server"
+import { stripe } from "@/lib/stripe-server"
+import { createStripePriceIfNeeded } from "@/lib/stripe-server"
 
 // import { auth } from "@clerk/nextjs/server"
 
@@ -209,9 +211,14 @@ export async function createBooking(data: {
 //   )
 //   revalidatePath("/admin")
 // }
+
+
+
+// lib/server-actions.ts
 export async function confirmBooking(id: number) {
   "use server"
 
+  /* 1.  fetch with customer ---------------------------------- */
   const booking = await prisma.booking.findUnique({
     where: { id },
     include: {
@@ -219,19 +226,11 @@ export async function confirmBooking(id: number) {
       services: { include: { service: true } },
     },
   })
+  if (!booking) throw new Error("Booking not found")
+  if (booking.status === "CANCELLED") throw new Error("Cannot confirm a cancelled booking")
+  if (booking.status === "CONFIRMED") return booking
 
-  if (!booking) {
-    throw new Error("Booking not found")
-  }
-
-  if (booking.status === "CANCELLED") {
-    throw new Error("Cannot confirm a cancelled booking")
-  }
-
-  if (booking.status === "CONFIRMED") {
-    return booking // already confirmed, no-op
-  }
-
+  /* 2.  mark confirmed --------------------------------------- */
   const updated = await prisma.booking.update({
     where: { id },
     data: { status: "CONFIRMED" },
@@ -241,18 +240,37 @@ export async function confirmBooking(id: number) {
     },
   })
 
+  /* 3.  Stripe price for first service ----------------------- */
+  if (updated.services.length === 0) throw new Error("No services in booking")
+  const firstService = updated.services[0].service
+  const priceId = await createStripePriceIfNeeded(firstService)
+
+  /* 4.  create CheckoutSession ------------------------------- */
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    customer_email: updated.customer.email,
+    client_reference_id: String(updated.id),
+    line_items: [{ price: priceId, quantity: 1 }],
+    success_url: `${process.env.NEXT_PUBLIC_URL}/paid/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url:  `${process.env.NEXT_PUBLIC_URL}/paid/cancel?session_id={CHECKOUT_SESSION_ID}`,
+    metadata: { bookingId: String(updated.id) },
+  })
+  const payUrl = session.url ?? undefined;   
+
+  /* 5.  send e-mail (7th arg is the pay link) --------------- */
   await sendBookingUpdate(
     updated.customer.email,
     "CONFIRMED",
     updated.id,
     updated.customer.name,
     updated.services.map((s) => s.service.name).join(", "),
-    updated.bookingDate.toISOString()
+    updated.bookingDate.toISOString(),
+    payUrl
   )
 
   revalidatePath("/admin")
   revalidatePath("/account")
-
   return updated
 }
 
