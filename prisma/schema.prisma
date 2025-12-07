@@ -1,0 +1,87 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  name      String
+  phone     String?
+  address   String?
+  clerkId   String?   @unique   // ← new
+  bookings  Booking[]
+  createdAt DateTime  @default(now())
+}
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float
+  durationMin Int
+  category    String   @default("Residential")
+  imageUrl    String?
+  bookings    BookingService[]
+}
+
+model Booking {
+  id           Int              @id @default(autoincrement())
+  customerId   Int
+  customer     Customer         @relation(fields: [customerId], references: [id])
+  bookingDate  DateTime
+  status       BookingStatus    @default(PENDING)
+  totalPrice   Float?
+  notes        String?
+  phone        String?
+  photos String[] @default([])
+  createdAt    DateTime         @default(now())
+  createdByClerkId String?
+  services     BookingService[]
+  assignedStaffId Int?
+  assignedStaff   Staff? @relation(fields: [assignedStaffId], references: [id])
+}
+
+model BookingService {
+  id         Int      @id @default(autoincrement())
+  bookingId  Int
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceId  Int
+  service    Service  @relation(fields: [serviceId], references: [id])
+  qty        Int      @default(1)
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+enum StaffStatus {
+  active
+  inactive
+  invited
+  suspended
+}
+
+
+
+model Staff {
+  id            Int      @id @default(autoincrement())
+  clerkId       String   @unique
+  name          String
+  email         String   @unique
+  phone         String?
+  role          String   @default("cleaner") // cleaner | supervisor
+  status        StaffStatus @default(active)
+  photoUrl      String?
+  assignedJobs  Booking[]
+  createdAt     DateTime @default(now())
+}
