@@ -1,8 +1,9 @@
+// components/booking-cta.tsx
 "use client"
 
 import { useState } from "react"
-import {  useUser } from "@clerk/nextjs"
-import { BookingForm } from "../components/booking-form"
+import { useUser } from "@clerk/nextjs"
+import { BookingForm } from "./booking-form"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, Clock, Star, ChevronRight } from "lucide-react"
@@ -11,8 +12,6 @@ import { toast } from "sonner"
 type Props = { services: any[] }
 
 export function BookingCTA({ services }: Props) {
-    
-  
   const { user, isLoaded } = useUser()
   const [showForm, setShowForm] = useState(false)
 
@@ -34,7 +33,7 @@ export function BookingCTA({ services }: Props) {
               Book Now <ChevronRight className="ml-2 h-5 w-5" />
             </Button>
           ) : (
-            <Button size="lg" onClick={() => window.location.href = "/sign-in"}>
+            <Button size="lg" onClick={() => (window.location.href = "/sign-in")}>
               Sign In to Book
             </Button>
           )}
@@ -51,11 +50,7 @@ export function BookingCTA({ services }: Props) {
           {services.map((s) => (
             <Card key={s.id} className="relative overflow-hidden hover:shadow-xl transition-shadow">
               {s.imageUrl && (
-                <img
-                  src={s.imageUrl}
-                  alt={s.name}
-                  className="w-full h-40 object-cover"
-                />
+                <img src={s.imageUrl} alt={s.name} className="w-full h-40 object-cover" />
               )}
               <CardContent className="p-6">
                 <h3 className="text-xl font-semibold mb-2">{s.name}</h3>
@@ -143,14 +138,14 @@ export function BookingCTA({ services }: Props) {
               </Button>
             </div>
             <div className="p-6">
-             <BookingForm
+              <BookingForm
                 services={services}
                 customer={user ? { email: user.primaryEmailAddress?.emailAddress, name: user.fullName } : undefined}
                 onSuccess={() => {
-                    setShowForm(false)
-                    toast.success("Booking submitted!")
+                  setShowForm(false)
+                  toast.success("Booking submitted!")
                 }}
-                />
+              />
             </div>
           </div>
         </div>

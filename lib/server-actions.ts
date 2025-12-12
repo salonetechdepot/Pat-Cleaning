@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import {notifyAdminNewBooking, sendBookingUpdate} from "../lib/mailer"
 import { send24hReminder } from "../lib/reminders"
 import { sendCustomerConfirmation } from "../lib/mailer"
-import { currentUser } from "@clerk/nextjs/server"
+import { auth} from "@clerk/nextjs/server"
 import { stripe } from "@/lib/stripe-server"
 import { createStripePriceIfNeeded } from "@/lib/stripe-server"
 
@@ -143,7 +143,7 @@ export async function createBooking(data: {
   // createdByClerkId?: string
 }) {
   "use server"
-  const user = await currentUser()
+  const user = await auth()
   if (!user) throw new Error("Unauthorized")
 
   // 1. ensure customer exists
@@ -172,7 +172,7 @@ export async function createBooking(data: {
       phone: data.phone,
       notes: data.notes,
       assignedStaffId: data.assignedStaffId ?? null,
-      createdByClerkId: data.clerkId || user.id,
+      createdByClerkId: data.clerkId || user.userId,
 
       services: {
         create: data.serviceIds.map((id) => ({
@@ -191,6 +191,8 @@ export async function createBooking(data: {
   revalidatePath("/admin")
   return booking
 }
+
+
 
 
 //booking status update
