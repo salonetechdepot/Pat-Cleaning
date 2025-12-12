@@ -3,7 +3,7 @@
 import { Resend } from "resend"
 
 // --- Resend Setup ---
-const resend = new Resend(process.env.NEXT_PUBLIC_RESEND_API_KEY)
+const resend = new Resend(process.env.RESEND_API_KEY)
 const from = process.env.NEXT_PUBLIC_FROM_EMAIL as string
 
 // ---------------------------------------------------------------------
