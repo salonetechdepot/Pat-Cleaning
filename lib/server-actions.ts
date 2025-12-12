@@ -172,7 +172,7 @@ export async function createBooking(data: {
       phone: data.phone,
       notes: data.notes,
       assignedStaffId: data.assignedStaffId ?? null,
-      createdByClerkId: user.id ?? null,
+      createdByClerkId: data.clerkId || user.id,
 
       services: {
         create: data.serviceIds.map((id) => ({
