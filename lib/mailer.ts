@@ -1,14 +1,30 @@
 "use server"
 
-import { Resend } from "resend"
+// ❌ DO NOT create Resend at top-level
+// const resend = new Resend(process.env.RESEND_API_KEY!)
+// const from = process.env.NEXT_PUBLIC_FROM_EMAIL as string
 
-// --- Resend Setup ---
-const resend = new Resend(process.env.RESEND_API_KEY)
-const from = process.env.NEXT_PUBLIC_FROM_EMAIL as string
+/** Safe lazy loader */
+function getResend() {
+  const Resend = require("resend").Resend;
 
-// ---------------------------------------------------------------------
-// 1️⃣ Booking Status Update Email (CONFIRMED, CANCELLED, COMPLETED, RESCHEDULED)
-// ---------------------------------------------------------------------
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Missing RESEND_API_KEY");
+  }
+
+  return new Resend(process.env.RESEND_API_KEY);
+}
+
+function fromAddress() {
+  if (!process.env.NEXT_PUBLIC_FROM_EMAIL) {
+    throw new Error("Missing NEXT_PUBLIC_FROM_EMAIL");
+  }
+  return process.env.NEXT_PUBLIC_FROM_EMAIL;
+}
+
+/* ---------------------------------------------------------
+   1️⃣ Booking Status Update Email
+--------------------------------------------------------- */
 export async function sendBookingUpdate(
   to: string,
   status: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED",
@@ -16,9 +32,11 @@ export async function sendBookingUpdate(
   customerName: string,
   serviceNames: string,
   date: string,
-  payUrl?: string // optional Stripe payment link
+  payUrl?: string
 ) {
   try {
+    const resend = getResend();
+
     const subject =
       status === "CONFIRMED"
         ? "Booking Confirmed ✅"
@@ -26,12 +44,11 @@ export async function sendBookingUpdate(
         ? "Booking Cancelled ❌"
         : status === "COMPLETED"
         ? "Booking Completed 🎉"
-        : "Booking Rescheduled 🔄"
+        : "Booking Rescheduled 🔄";
 
     const html = `
       <p>Hi ${customerName},</p>
-      <p>Your cleaning booking <strong>#${bookingId}</strong> has been 
-      <strong>${status.toLowerCase()}</strong>.</p>
+      <p>Your booking <strong>#${bookingId}</strong> is now <b>${status.toLowerCase()}</b>.</p>
 
       <ul>
         <li>Services: ${serviceNames}</li>
@@ -43,23 +60,28 @@ export async function sendBookingUpdate(
           ? `<a href="${payUrl}" 
                style="background:#635bff;color:white;padding:12px 24px;
                border-radius:6px;text-decoration:none;display:inline-block;margin-top:16px;">
-               Pay now with Stripe
+               Click here to pay
              </a>`
           : ""
       }
 
       <p>Thank you for choosing Pat Pro Cleaning!</p>
-    `
+    `;
 
-    await resend.emails.send({ from, to, subject, html })
-  } catch (error) {
-    console.error("Failed to send booking update email:", error)
+    await resend.emails.send({
+      from: fromAddress(),
+      to,
+      subject,
+      html,
+    });
+  } catch (err) {
+    console.error("sendBookingUpdate ERROR:", err);
   }
 }
 
-// ---------------------------------------------------------------------
-// 2️⃣ Customer Confirmation Email (after they submit a booking)
-// ---------------------------------------------------------------------
+/* ---------------------------------------------------------
+   2️⃣ Customer Confirmation Email
+--------------------------------------------------------- */
 export async function sendCustomerConfirmation(
   to: string,
   customerName: string,
@@ -68,34 +90,35 @@ export async function sendCustomerConfirmation(
   date: string
 ) {
   try {
+    const resend = getResend();
+
     const html = `
       <p>Hi ${customerName},</p>
-      <p>Your cleaning is <strong>confirmed</strong> for 
-      <strong>${new Date(date).toLocaleString()}</strong>.</p>
+      <p>Your booking is <strong>confirmed</strong>.</p>
       
       <ul>
-        <li>Services: ${serviceNames}</li>
         <li>Booking ID: #${bookingId}</li>
+        <li>Services: ${serviceNames}</li>
+        <li>Date: ${new Date(date).toLocaleString()}</li>
       </ul>
 
-      <p>You can reschedule or cancel anytime from your dashboard.</p>
-      <p>Thanks for choosing Pat Pro! 🧼</p>
-    `
+      <p>You may manage your booking in your dashboard.</p>
+    `;
 
     await resend.emails.send({
-      from,
+      from: fromAddress(),
       to,
-      subject: "✅ Cleaning Confirmed – See You Soon!",
+      subject: "Booking Confirmed ✔️",
       html,
-    })
-  } catch (error) {
-    console.error("Failed to send customer confirmation email:", error)
+    });
+  } catch (err) {
+    console.error("sendCustomerConfirmation ERROR:", err);
   }
 }
 
-// ---------------------------------------------------------------------
-// 3️⃣ Admin Notification Email (sent when a new booking is created)
-// ---------------------------------------------------------------------
+/* ---------------------------------------------------------
+   3️⃣ Notify Admin New Booking
+--------------------------------------------------------- */
 export async function notifyAdminNewBooking(
   bookingId: number,
   customerName: string,
@@ -104,27 +127,25 @@ export async function notifyAdminNewBooking(
   date: string
 ) {
   try {
+    const resend = getResend();
+
     const html = `
-      <p>New booking received!</p>
+      <p><strong>New Booking Received</strong></p>
       <ul>
-        <li>Booking ID: #${bookingId}</li>
+        <li>ID: #${bookingId}</li>
         <li>Customer: ${customerName} (${customerEmail})</li>
         <li>Services: ${serviceNames}</li>
         <li>Date: ${new Date(date).toLocaleString()}</li>
       </ul>
-
-      <p><a href="https://yourdomain.com/admin">
-        View in admin dashboard
-      </a></p>
-    `
+    `;
 
     await resend.emails.send({
-      from,
-      to: process.env.ADMIN_EMAIL as string,
-      subject: `📩 New Booking #${bookingId} – Admin Action Needed`,
+      from: fromAddress(),
+      to: process.env.ADMIN_EMAIL!,
+      subject: `📩 New Booking #${bookingId}`,
       html,
-    })
-  } catch (error) {
-    console.error("Failed to send admin notification email:", error)
+    });
+  } catch (err) {
+    console.error("notifyAdminNewBooking ERROR:", err);
   }
 }
