@@ -242,23 +242,47 @@ export async function confirmBooking(id: number) {
     },
   })
 
-  /* 3.  Stripe price for first service ----------------------- */
-  if (updated.services.length === 0) throw new Error("No services in booking")
-  const firstService = updated.services[0].service
-  const priceId = await createStripePriceIfNeeded(firstService)
+  // /* 3.  Stripe price for first service ----------------------- */
+  // if (updated.services.length === 0) throw new Error("No services in booking")
+  // const firstService = updated.services[0].service
+  // const priceId = await createStripePriceIfNeeded(firstService)
 
-  /* 4.  create CheckoutSession ------------------------------- */
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: updated.customer.email,
-    client_reference_id: String(updated.id),
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${process.env.NEXT_PUBLIC_URL}/paid/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url:  `${process.env.NEXT_PUBLIC_URL}/paid/cancel?session_id={CHECKOUT_SESSION_ID}`,
-    metadata: { bookingId: String(updated.id) },
+  // /* 4.  create CheckoutSession ------------------------------- */
+  // const session = await stripe.checkout.sessions.create({
+  //   mode: "payment",
+  //   payment_method_types: ["card"],
+  //   customer_email: updated.customer.email,
+  //   client_reference_id: String(updated.id),
+  //   line_items: [{ price: priceId, quantity: 1 }],
+  //   success_url: `${process.env.NEXT_PUBLIC_URL}/paid/success?session_id={CHECKOUT_SESSION_ID}`,
+  //   cancel_url:  `${process.env.NEXT_PUBLIC_URL}/paid/cancel?session_id={CHECKOUT_SESSION_ID}`,
+  //   metadata: { bookingId: String(updated.id) },
+  // })
+   /* ----- build one Checkout item per service ----- */
+const lineItems = await Promise.all(
+  updated.services.map(async (s) => {
+    const priceId = await createStripePriceIfNeeded(s.service)
+    return { price: priceId, quantity: s.qty ?? 1 }
   })
-  const payUrl = session.url ?? undefined;   
+)
+
+/* ----- create Checkout session ----------------- */
+const session = await stripe.checkout.sessions.create({
+  mode: "payment",
+  payment_method_types: ["card"],
+  customer_email: updated.customer.email,
+  client_reference_id: String(updated.id),
+  line_items: lineItems,               // ← multi-service
+  success_url: `${process.env.NEXT_PUBLIC_URL}/paid/success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${process.env.NEXT_PUBLIC_URL}/paid/cancel?session_id={CHECKOUT_SESSION_ID}`,
+  metadata: { bookingId: String(updated.id) },
+})
+
+  const payUrl = session.url ?? undefined
+    await prisma.booking.update({
+      where: { id: updated.id },
+      data: { payUrl },
+  })
 
   /* 5.  send e-mail (7th arg is the pay link) --------------- */
   await sendBookingUpdate(

@@ -43,6 +43,7 @@ model Booking {
   photos String[] @default([])
   createdAt    DateTime         @default(now())
   createdByClerkId String?
+  payUrl String?
   services     BookingService[]
   assignedStaffId Int?
   assignedStaff   Staff? @relation(fields: [assignedStaffId], references: [id])
@@ -64,6 +65,7 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   RESCHEDULED
+  PAID
 }
 enum StaffStatus {
   active

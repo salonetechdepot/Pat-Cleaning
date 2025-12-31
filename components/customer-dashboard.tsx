@@ -169,6 +169,13 @@ export function CustomerDashboard({ serverBookings, customer, services }: Props)
                           <Button variant="outline" size="sm" onClick={async () => { await cancelBooking(b.id); toast.success("Booking cancelled"); router.refresh(); }}>
                             Cancel
                           </Button>
+                          {b.status === "CONFIRMED" && b.payUrl && (
+                          <Button asChild size="sm">
+                            <a href={b.payUrl} target="_blank" rel="noopener noreferrer">
+                              Pay now
+                            </a>
+                          </Button>
+                        )}
                         </div>
                       </CardContent>
                     </Card>

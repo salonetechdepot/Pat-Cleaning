@@ -27,25 +27,28 @@ function fromAddress() {
 --------------------------------------------------------- */
 export async function sendBookingUpdate(
   to: string,
-  status: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED",
+  status: "CONFIRMED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED" | "PAID",
   bookingId: number,
   customerName: string,
   serviceNames: string,
   date: string,
   payUrl?: string
-) {
+): Promise<void> {
   try {
     const resend = getResend();
 
-    const subject =
-      status === "CONFIRMED"
-        ? "Booking Confirmed ✅"
-        : status === "CANCELLED"
-        ? "Booking Cancelled ❌"
-        : status === "COMPLETED"
-        ? "Booking Completed 🎉"
-        : "Booking Rescheduled 🔄";
+    /* map any status to subject + emoji */
+    const subjectMap: Record<typeof status, string> = {
+      CONFIRMED: "Booking Confirmed ✅",
+      CANCELLED: "Booking Cancelled ❌",
+      COMPLETED: "Booking Completed 🎉",
+      RESCHEDULED: "Booking Rescheduled 🔄",
+      PAID: "Payment Received 💳",
+    };
 
+    const subject = subjectMap[status] ?? `Booking ${status}`;
+
+    /* HTML body */
     const html = `
       <p>Hi ${customerName},</p>
       <p>Your booking <strong>#${bookingId}</strong> is now <b>${status.toLowerCase()}</b>.</p>
@@ -68,14 +71,24 @@ export async function sendBookingUpdate(
       <p>Thank you for choosing Pat Pro Cleaning!</p>
     `;
 
+    /* plain-text fallback */
+    const text = `Hi ${customerName},
+Your booking #${bookingId} is now ${status.toLowerCase()}.
+Services: ${serviceNames}
+Date: ${new Date(date).toLocaleString()}
+${payUrl ? `Pay here: ${payUrl}` : ""}
+Thank you for choosing Pat Pro Cleaning!`;
+
     await resend.emails.send({
       from: fromAddress(),
       to,
       subject,
       html,
+      text,
     });
   } catch (err) {
     console.error("sendBookingUpdate ERROR:", err);
+    throw err; // let caller know
   }
 }
 
